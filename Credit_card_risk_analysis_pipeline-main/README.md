@@ -1,0 +1,295 @@
+<div align="center">
+
+# 💳 Credit Card Customer Risk & Spend Intelligence Pipeline
+
+### An End-to-End Data Analytics Portfolio Project
+
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Pandas](https://img.shields.io/badge/Pandas-150458?style=for-the-badge&logo=pandas&logoColor=white)](https://pandas.pydata.org/)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
+[![Power BI](https://img.shields.io/badge/Power%20BI-F2C811?style=for-the-badge&logo=powerbi&logoColor=black)](https://powerbi.microsoft.com/)
+[![Jupyter](https://img.shields.io/badge/Jupyter-F37626?style=for-the-badge&logo=jupyter&logoColor=white)](https://jupyter.org/)
+
+**Domain:** Credit Card Risk Analytics · Fraud Signals · Customer Spend Behaviour  
+**Target Roles:** Data Analyst / Business Analyst — Financial Services & Card Issuers
+
+</div>
+
+---
+
+## 📌 Project Overview
+
+This project simulates the complete workflow of a **Data Analyst on a credit card issuer's Risk & Analytics team** — the kind of work done at American Express, HDFC Bank, ICICI, and other major card issuers.
+
+Raw transactional data is taken through the **full analytics lifecycle**:
+- Relational database design and loading
+- Python-based feature engineering and EDA
+- Unsupervised ML risk scoring (Isolation Forest)
+- Statistical visualisation notebook
+- A live, stakeholder-facing 3-page Power BI dashboard
+
+> **Why synthetic data?** The most popular Kaggle credit card datasets use PCA-anonymised columns (V1–V28) that cannot be explained in an interview. Every column here is meaningful, every number is explainable, and every business question has a real answer in the data.
+
+---
+
+## 🏗️ Architecture
+
+```
+Raw CSVs (Python-generated)
+        │
+        ▼
+┌──────────────────┐
+│   PostgreSQL DB   │  ← Normalised 4-table schema, ENUM constraints,
+│  credit_risk_db   │    CHECK constraints, 5 performance indexes
+└────────┬─────────┘
+         │  SQLAlchemy / psycopg2
+         ▼
+┌──────────────────┐
+│  Python Notebook  │  ← pandas EDA, 8 engineered features,
+│  (Feature Eng.)   │    RFM scoring, customer_features.csv
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  Risk Scoring     │  ← Rule-based score (0–100) +
+│  (Isolation       │    Isolation Forest anomaly detection,
+│   Forest)         │    customer_risk_scores.csv
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  Matplotlib /     │  ← 8 publication-quality EDA charts:
+│  Seaborn          │    heatmaps, RFM scatter, correlation matrix
+│  Notebook         │
+└────────┬─────────┘
+         │  Live PostgreSQL connection + CSV enrichment
+         ▼
+┌──────────────────┐
+│   Power BI        │  ← 3-page dashboard, 12 DAX measures,
+│   Dashboard       │    slicers, conditional formatting
+└──────────────────┘
+```
+
+---
+
+## 📊 Dataset Schema
+
+4-table normalised relational schema — designed to demonstrate schema design skills beyond `SELECT *`.
+
+| Table | Rows | Key Columns |
+|---|---|---|
+| `customers` | 50,000 | customer_id, name, age, income_band, city, signup_date |
+| `cards` | 70,000 | card_id, customer_id (FK), card_type, credit_limit, issue_date |
+| `merchants` | 5,000 | merchant_id, merchant_name, category (10 types) |
+| `transactions` | 750,000 | transaction_id, card_id (FK), merchant_id (FK), txn_time, amount, status |
+
+**Schema design decisions:**
+- `NUMERIC(12,2)` for `amount` — avoids floating-point rounding errors on financial data
+- `ENUM` types for `income_band`, `card_type`, `category`, `status` — enforces valid values at DB level
+- `CHECK` constraints on `age` (18–100), `amount` (> 0), `credit_limit` (> 0)
+- 5 indexes on `transactions` table for sub-second Power BI query performance
+
+---
+
+## ⚙️ Feature Engineering
+
+8 customer-level behavioural features engineered in Python from raw transaction data:
+
+| Feature | Definition | Used In |
+|---|---|---|
+| `total_spend` | Sum of all approved transaction amounts | RFM Monetary, KPIs |
+| `avg_ticket_size` | Mean approved transaction amount | Spend profiling |
+| `spend_velocity` | Total spend ÷ active days | Risk scoring |
+| `merchant_diversity` | Count of distinct merchant categories | Risk scoring |
+| `decline_rate` | Declined txns ÷ total txns | Risk scoring (30 pts) |
+| `dispute_rate` | Disputed txns ÷ total txns | Risk scoring (25 pts) |
+| `late_night_ratio` | % of txns between 11pm–4am | Risk scoring (20 pts) |
+| `avg_utilisation` | Avg spend ÷ credit limit | Risk scoring, dashboard |
+| `RFM_score` | Recency + Frequency + Monetary quintile scores | Segmentation |
+
+---
+
+## 🤖 Risk Scoring Model
+
+**Two-layer approach** — explainable rule-based score + unsupervised ML:
+
+**Layer 1 — Rule-Based Score (0–100)**
+
+| Rule | Threshold | Points |
+|---|---|---|
+| Decline rate | > 20% | 30 pts |
+| Dispute rate | > 10% | 25 pts |
+| Late-night ratio | > 30% | 20 pts |
+| Avg utilisation | > 80% | 15 pts |
+| RFM score | ≤ 5 | 10 pts |
+
+**Layer 2 — Isolation Forest**
+- Unsupervised anomaly detection across 7 scaled behavioural features
+- No labelled fraud data required
+- `contamination=0.05` flags the most statistically unusual 5% of customers
+
+**Final Score:**
+```
+final_risk_score = (0.60 × rule_risk_score) + (0.40 × normalised_anomaly_score)
+```
+
+| Risk Tier | Score Range |
+|---|---|
+| Low Risk | < 40 |
+| Medium Risk | 40 – 69 |
+| High Risk | ≥ 70 |
+
+---
+
+## 📈 Power BI Dashboard
+
+Live 3-page dashboard connected directly to PostgreSQL with 12 custom DAX measures.
+
+---
+
+### Page 1 — Executive Overview
+
+> **Audience:** C-suite, Finance lead, Risk Director  
+> **Purpose:** 10-second portfolio health check — total spend, dispute rate, decline rate, high-risk count, monthly trend, transaction status split, spend by card type, top cities
+
+![Executive Overview](creditcard_risk%20SS/executive%20Overview.png)
+
+**Key visuals:**
+- 4 KPI cards with month-over-month delta indicators (green = favourable, red = unfavourable)
+- Monthly Spend Trend line chart split by transaction status (Approved / Declined / Disputed)
+- Transaction Status Split stacked bar (93.76% Approved · 4.27% Declined · 1.97% Disputed)
+- Spend by Card Type donut chart
+- Top 8 Cities by Spend column chart
+- Card Type and City slicers with Clear Filters button
+
+---
+
+### Page 2 — Customer Segmentation
+
+> **Audience:** Marketing team, Customer Strategy lead, Head of Rewards  
+> **Purpose:** Understand who the customers are, how they segment by RFM, and where spend is concentrated
+
+![Customer Segmentation](creditcard_risk%20SS/Customer%20Segmentation.png)
+
+**Key visuals:**
+- 4 KPI cards: Total Customers (50K) · Avg Spend (₹28,259) · Avg Ticket Size (₹2,009) · Avg Utilisation (16.6%)
+- Spend by Income Band — Medium income contributes highest spend (₹572M)
+- Spend by Merchant Category — Dining leads (₹174M), followed by Fuel (₹161M), Fashion (₹156M)
+- RFM Segment Breakdown donut: Champions 28.51% · At Risk 24.79% · Lost 21.26% · Loyal 25.44%
+- Top Customers by Spend table with RFM segment labels
+- RFM Segment and Income Band interactive slicers
+
+---
+
+### Page 3 — Risk Monitor
+
+> **Audience:** Risk Operations team, Fraud Analyst, Credit Risk Manager  
+> **Purpose:** Operationally actionable daily review — turns model output into a prioritised shortlist
+
+![Risk Monitor](creditcard_risk%20SS/Risk%20Analysis.png)
+
+**Key visuals:**
+- 4 KPI cards: High Risk Customers (118) · Avg Risk Score (18.60) · Dispute Rate % (1.47%) · Decline Rate % (4.77%)
+- Avg Risk Score by Income Band — consistent across bands (~18–19), indicating portfolio-wide risk is uniform
+- Dispute Rate % by Card Type — Platinum highest (1.47%), Business lowest
+- Risk Score Distribution area chart — majority of customers in 0–20 (Very Low) band, healthy portfolio signal
+- High Risk Customers table with final_risk_score, risk_tier, decline rate, dispute rate, total spend
+- Risk Tier and Card Type slicers
+
+---
+
+## 📁 Repository Structure
+
+```
+Credit_card_risk_analysis_pipeline/
+│
+├── creditcard_risk SS/               # Dashboard screenshots
+│   ├── executive Overview.png
+│   ├── Customer Segmentation.png
+│   └── Risk Analysis.png
+│
+├── credit_card_dataset_v3/           # Synthetic dataset (4 CSVs)
+│   ├── customers.csv                 # 50,000 rows
+│   ├── cards.csv                     # 70,000 rows
+│   ├── merchants.csv                 # 5,000 rows
+│   └── transactions.csv              # 750,000 rows
+│
+├── 03_risk_scoring.ipynb             # Risk scoring + Isolation Forest notebook
+├── 04_visualisations.ipynb           # 8 EDA charts (matplotlib / seaborn)
+├── credit_risk_analyser.pbix         # Power BI dashboard file
+├── customer_features.csv             # Step 2 output — engineered features
+├── customer_risk_scores.csv          # Step 3 output — risk scores per customer
+└── README.md
+```
+
+---
+
+## 🚀 How to Run
+
+### Prerequisites
+```bash
+pip install psycopg2-binary sqlalchemy pandas numpy scikit-learn matplotlib seaborn jupyter
+```
+
+### 1. Set up PostgreSQL
+```sql
+CREATE DATABASE credit_risk_db;
+```
+
+### 2. Load the schema and data
+Open pgAdmin → connect to `credit_risk_db` → run the DDL:
+```sql
+-- Creates all 4 tables with constraints and indexes
+-- Then load CSVs via pgAdmin Import/Export (in order: customers → merchants → cards → transactions)
+```
+
+### 3. Run the notebooks
+```bash
+jupyter notebook
+```
+- Open `03_risk_scoring.ipynb` — generates `customer_risk_scores.csv`
+- Open `04_visualisations.ipynb` — generates 8 EDA charts
+
+### 4. Open the dashboard
+- Open `credit_risk_analyser.pbix` in Power BI Desktop
+- Update the PostgreSQL connection to your local credentials
+- Refresh data
+
+---
+
+## 🔑 Key Findings
+
+- **₹1.51 Billion** in total card spend across 750,000 transactions
+- **93.76%** approval rate — 4.27% declined, 1.97% disputed
+- **Medium income** customers contribute the highest total spend (₹572M) despite not being the highest-earning segment
+- **Dining** is the top merchant category by spend (₹174M), followed by Fuel and Fashion — key insight for rewards programme design
+- **28.51% of customers** are Champions (high RFM) — the most valuable retention target
+- **24.79% are At Risk** — nearly 1 in 4 customers showing disengagement signals, a significant retention opportunity
+- Risk score distribution is **skewed toward Very Low (0–20)** — majority of customers are low-risk, with a small but identifiable high-risk tail
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Tool | Purpose |
+|---|---|---|
+| Database | PostgreSQL + pgAdmin | Schema design, data storage, SQL analytics |
+| ETL | Python — psycopg2, SQLAlchemy | Data loading and validation |
+| Analysis | Python — pandas, numpy | EDA and feature engineering |
+| ML | scikit-learn — Isolation Forest | Unsupervised anomaly detection |
+| Visualisation | Matplotlib, Seaborn | Statistical storytelling notebook |
+| Dashboard | Power BI + DAX | Live stakeholder-facing reporting |
+
+---
+
+## 👤 Author
+
+**Harshit Gupta**  
+[GitHub](https://github.com/HarshitGupta00) · [LinkedIn](https://linkedin.com/in/harshitgupta00)
+
+---
+
+<div align="center">
+<i>All values are in INR · Data as of 12 Jun 2026 · Synthetic data generated for portfolio purposes</i>
+</div>
